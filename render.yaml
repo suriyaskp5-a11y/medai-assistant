@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: medai-backend
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: MAX_REQUESTS_PER_MINUTE
+        value: "5"
+      - key: MAX_REQUESTS_PER_DAY
+        value: "25"
