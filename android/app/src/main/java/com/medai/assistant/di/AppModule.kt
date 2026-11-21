@@ -3,11 +3,12 @@ package com.medai.assistant.di
 import com.google.firebase.auth.FirebaseAuth
 import com.medai.assistant.BuildConfig
 import com.medai.assistant.data.api.MedAiApi
-import com.medai.assistant.data.repository.AuthRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -25,14 +26,20 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authRepository: AuthRepository): OkHttpClient {
+    fun provideOkHttpClient(auth: FirebaseAuth): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
         return OkHttpClient.Builder()
             .addInterceptor(logging)
             .addInterceptor { chain ->
-                val token = kotlinx.coroutines.runBlocking { authRepository.getIdToken() }
+                val token = runBlocking {
+                    try {
+                        auth.currentUser?.getIdToken(false)?.await()?.token
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
                 val request = if (token != null) {
                     chain.request().newBuilder()
                         .addHeader("Authorization", "Bearer $token")
