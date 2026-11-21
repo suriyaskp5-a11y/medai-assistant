@@ -18,14 +18,14 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/\"")
+        buildConfigField("String", "BASE_URL", "\"https://medai-backend-fzzk.onrender.com/\"")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://medai-backend.onrender.com/\"")
+            buildConfigField("String", "BASE_URL", "\"https://medai-backend-fzzk.onrender.com/\"")
         }
     }
     compileOptions {
