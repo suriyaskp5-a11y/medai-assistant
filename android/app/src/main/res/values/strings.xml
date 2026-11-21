@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MedAI Assistant</string>
+    <string name="disclaimer">For educational use only. Not a substitute for professional medical advice.</string>
+    <string name="tamil_tts_unavailable">Tamil voice not available on this device. Install Google Text-to-Speech with Tamil language from Settings → Accessibility → Text-to-speech.</string>
+</resources>

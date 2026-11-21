@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Secrets & Config
+backend/.env
+backend/serviceAccountKey.json
+
+# Android
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
