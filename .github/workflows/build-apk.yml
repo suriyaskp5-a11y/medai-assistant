@@ -5,6 +5,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,10 +37,27 @@ jobs:
         gradle wrapper --gradle-version 8.7
         chmod +x gradlew
         ./gradlew assembleDebug --no-daemon --stacktrace
+        cp app/build/outputs/apk/debug/app-debug.apk ../MedAI-Assistant.apk
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: MedAI-Assistant-APK
-        path: android/app/build/outputs/apk/debug/*.apk
+        path: MedAI-Assistant.apk
         retention-days: 14
+
+    - name: Publish to GitHub Releases
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v1.0.1
+        name: "MedAI Assistant APK (Latest)"
+        body: |
+          ### MedAI Assistant Latest APK
+          - General knowledge & medical assistant (ChatGPT-style)
+          - Bilingual: English & Tamil with clean TTS voice
+          - Formatted headings and bold highlights
+          
+          **Direct Download**: Click `MedAI-Assistant.apk` below to download directly to your phone.
+        files: MedAI-Assistant.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
