@@ -179,7 +179,8 @@ class ChatViewModel @Inject constructor(
                             error = when {
                                 errorDetail.contains("429") -> "Daily or rate limit reached. Please wait a moment."
                                 errorDetail.contains("401") -> "Session expired. Please sign in again."
-                                else -> "Network error. Please try again."
+                                errorDetail.contains("timeout", ignoreCase = true) -> "Server is waking up (Render free tier cold start). Please tap send again!"
+                                else -> "Connection error. Please tap send again."
                             }
                         )
                     }
