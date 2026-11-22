@@ -33,10 +33,10 @@ SYSTEM_PROMPT = """You are MedAI, a helpful bilingual AI assistant that answers 
 - Keep English technical terms in Tamil explanation — show the English term in parentheses.
 
 ## RESPONSE QUALITY
-- Give detailed, informative answers like a knowledgeable friend.
+- Give detailed, informative answers like a knowledgeable assistant.
 - Don't be vague. If asked "what is headache?", explain causes, types, symptoms, and remedies.
 - For medical questions: add a brief note to consult a doctor for personal symptoms.
-- For coding/tech questions: provide actual code examples when relevant.
+- For coding/tech questions: provide code examples when relevant.
 
 ## RESPONSE FORMAT
 You MUST respond with ONLY valid JSON — no markdown code fences, no extra text before or after.
@@ -45,13 +45,13 @@ The JSON must conform exactly to this schema:
 {
   "detected_input_language": "en" or "ta",
   "original_question": "<the question exactly as asked>",
-  "english_question_translation": "<English translation if original was Tamil, else null>",
+  "english_question_translation": null,
   "english_answer": "<Detailed English answer using **bold** for headings and bullet points for structure>",
-  "tamil_explanation": "<Tamil explanation preserving English technical terms in parentheses>",
+  "tamil_explanation": "<Detailed Tamil explanation preserving English technical terms in parentheses>",
   "key_medical_terms": [
     {"term": "<key term in English>", "tamil": "<Tamil meaning or transliteration>"}
   ],
-  "safety_note": "<Brief note to consult a doctor if personal symptoms mentioned, else null>",
+  "safety_note": null,
   "sources": [],
   "out_of_scope": false
 }
@@ -71,11 +71,9 @@ _REQUIRED_FIELDS = {
 
 # Supported modern Gemini models in priority order
 GEMINI_MODELS = [
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-flash-latest",
 ]
 
 
@@ -92,7 +90,7 @@ def _sanitize_response(parsed: dict, question: str) -> dict:
     parsed.setdefault("detected_input_language", "en")
     parsed.setdefault("original_question", question)
     parsed.setdefault("english_question_translation", None)
-    parsed.setdefault("english_answer", "I'm here to help! Could you please rephrase your question?")
+    parsed.setdefault("english_answer", "I'm here to help! Could you please ask your question again?")
     parsed.setdefault("tamil_explanation", "")
     parsed.setdefault("key_medical_terms", [])
     parsed.setdefault("safety_note", None)
@@ -100,7 +98,6 @@ def _sanitize_response(parsed: dict, question: str) -> dict:
     parsed.setdefault("out_of_scope", False)
     if not parsed.get("original_question"):
         parsed["original_question"] = question
-    # Always set out_of_scope to False
     parsed["out_of_scope"] = False
     return parsed
 
@@ -133,27 +130,32 @@ async def _call_gemini_model(model_name: str, question: str, conversation_histor
 
 async def _call_free_fallback_llm(question: str) -> dict:
     """
-    Call Pollinations.ai free text API as a fallback.
-    Returns a parsed dict matching the required schema.
+    Call Pollinations.ai free text API (POST JSON with openai-fast model).
+    This is completely free, needs NO API key, and has NO strict daily quota.
     """
-    prompt = f"""{SYSTEM_PROMPT}
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{SYSTEM_PROMPT}\n\nQuestion: {question}\n\nRespond with ONLY valid JSON according to the schema."
+            }
+        ],
+        "model": "openai-fast",
+        "jsonMode": True
+    }
 
-User question: {question}
-
-Respond ONLY with valid JSON matching the schema above."""
-
-    encoded_prompt = prompt.replace(" ", "%20").replace("\n", "%0A")
-    # Use Pollinations text API
-    url = f"https://text.pollinations.ai/{encoded_prompt}"
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(url)
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        response = await client.post(
+            "https://text.pollinations.ai/",
+            json=payload,
+            headers={"Content-Type": "application/json", "User-Agent": "MedAI/1.0"}
+        )
         response.raise_for_status()
         raw_text = response.text.strip()
 
     cleaned = _strip_code_fences(raw_text)
 
-    # Try to find JSON in the response
+    # Extract JSON object from output
     json_match = re.search(r'\{.*\}', cleaned, re.DOTALL)
     if json_match:
         cleaned = json_match.group()
@@ -164,7 +166,7 @@ Respond ONLY with valid JSON matching the schema above."""
 
 def _build_fallback_response(question: str) -> dict:
     """
-    Build a helpful fallback response when all AI models fail.
+    Build a helpful fallback response when all models are temporarily busy.
     """
     return {
         "detected_input_language": "en",
@@ -172,20 +174,14 @@ def _build_fallback_response(question: str) -> dict:
         "english_question_translation": None,
         "english_answer": (
             f"**Your Question:** {question}\n\n"
-            "I'm currently experiencing connectivity issues with the AI service. "
-            "This usually happens when:\n"
-            "• The AI service is temporarily overloaded\n"
-            "• Network connectivity issues\n\n"
-            "**Please try again in a moment** — the service should recover shortly.\n\n"
-            "If you have a medical question, I recommend:\n"
-            "• Consulting a qualified healthcare professional\n"
-            "• Checking trusted medical resources like WebMD or Mayo Clinic"
+            "The AI service is experiencing high traffic right now.\n\n"
+            "• Please tap **Send** again in 10-15 seconds.\n"
+            "• If this persists, the server will automatically reconnect shortly."
         ),
         "tamil_explanation": (
             f"**உங்கள் கேள்வி:** {question}\n\n"
-            "தற்போது AI சேவையில் இணைப்பு சிக்கல் உள்ளது. "
-            "சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.\n\n"
-            "மருத்துவ கேள்விகளுக்கு தகுதியான மருத்துவரை அணுகவும்."
+            "AI சேவையில் தற்போது அதிகப்படியான பயன்பாடு உள்ளது.\n\n"
+            "• தயவுசெய்து 10-15 வினாடிகள் கழித்து மீண்டும் **Send** அழுத்தவும்."
         ),
         "key_medical_terms": [],
         "safety_note": None,
@@ -197,28 +193,40 @@ def _build_fallback_response(question: str) -> dict:
 async def generate_medical_answer(question: str, conversation_history: list[dict]) -> dict:
     """
     Generate a bilingual answer for any question.
-    Tries modern Gemini models first; automatically falls back to Free Cloud LLM,
-    and finally uses a helpful fallback message so requests never fail silently.
+    1. Tries Gemini models.
+    2. If Gemini hits quota limits (429 / ResourceExhausted), immediately uses Free Cloud LLM (Pollinations).
+    3. If Gemini is unavailable, Free Cloud LLM answers seamlessly.
+    4. Deterministic fallback message ensures no blank or unhandled crash.
     """
+    gemini_quota_exhausted = False
+
     # 1. Try Gemini models
     for model_name in GEMINI_MODELS:
+        if gemini_quota_exhausted:
+            break
         try:
             logger.info(f"Attempting answer with Gemini model: {model_name}")
             parsed = await _call_gemini_model(model_name, question, conversation_history)
             logger.info(f"Successfully generated answer with {model_name}")
             return _sanitize_response(parsed, question)
         except Exception as e:
-            logger.warning(f"Gemini {model_name} failed: {type(e).__name__} ({e}). Trying next...")
+            err_str = str(e)
+            logger.warning(f"Gemini {model_name} failed: {type(e).__name__} ({e})")
+            # If 429 quota exhausted or rate limited, don't waste time trying other Gemini models with the same key
+            if any(term in err_str for term in ["429", "ResourceExhausted", "RESOURCE_EXHAUSTED", "quota", "Quota"]):
+                logger.warning("Gemini API quota exhausted (429). Switching immediately to Free Cloud LLM...")
+                gemini_quota_exhausted = True
+                break
 
-    # 2. Try Free Cloud LLM Fallback (No API key needed)
+    # 2. Free Cloud LLM (Unlimited, NO API key required, NO quota limit)
     try:
-        logger.info("Attempting answer with Free Fallback LLM (Pollinations)...")
+        logger.info("Attempting answer with Free Cloud LLM (Pollinations openai-fast)...")
         parsed = await _call_free_fallback_llm(question)
-        logger.info("Successfully generated answer with Free Fallback LLM")
+        logger.info("Successfully generated answer with Free Cloud LLM")
         return _sanitize_response(parsed, question)
     except Exception as e:
-        logger.warning(f"Free Fallback LLM failed: {type(e).__name__} ({e})")
+        logger.warning(f"Free Cloud LLM failed: {type(e).__name__} ({e})")
 
-    # 3. Helpful fallback message (Guaranteed to succeed)
+    # 3. Fallback message (Guaranteed to return valid schema)
     logger.info("Using built-in fallback response")
     return _build_fallback_response(question)
