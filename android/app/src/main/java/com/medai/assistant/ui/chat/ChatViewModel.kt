@@ -188,11 +188,34 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Clean markdown symbols before passing text to TTS.
+     * Removes ##, **, *, _, ~, `, bullets, links — so only natural language is spoken.
+     */
+    private fun cleanForTTS(text: String): String {
+        return text
+            .replace(Regex("#{1,6}\\s*"), "")           // Remove ## headings
+            .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")  // Remove **bold**
+            .replace(Regex("\\*(.*?)\\*"), "$1")         // Remove *italic*
+            .replace(Regex("__(.*?)__"), "$1")           // Remove __bold__
+            .replace(Regex("_(.*?)_"), "$1")             // Remove _italic_
+            .replace(Regex("~~(.*?)~~"), "$1")           // Remove ~~strikethrough~~
+            .replace(Regex("`{1,3}[^`]*`{1,3}"), "")    // Remove `code`
+            .replace(Regex("\\[([^\\]]+)]\\([^)]+\\)"), "$1") // Remove [links](url)
+            .replace(Regex("^[•\\-\\*]\\s+", RegexOption.MULTILINE), "") // Remove bullet - or •
+            .replace(Regex("^\\d+\\.\\s+", RegexOption.MULTILINE), "")   // Remove 1. 2. list numbers
+            .replace(Regex("[*#_~`]"), "")               // Remove any remaining symbols
+            .replace(Regex("\\s{2,}"), " ")              // Collapse multiple spaces
+            .replace(Regex("\n{2,}"), ". ")              // Replace double newlines with pause
+            .replace("\n", " ")                          // Replace single newlines with space
+            .trim()
+    }
+
     fun speakEnglish(text: String) {
         stopSpeaking()
         if (ttsEnReady) {
             _uiState.update { it.copy(isSpeakingEn = true, isSpeakingTa = false) }
-            ttsEn?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "en_utt")
+            ttsEn?.speak(cleanForTTS(text), TextToSpeech.QUEUE_FLUSH, null, "en_utt")
         } else {
             _uiState.update { it.copy(error = "English TTS not ready on this device.") }
         }
@@ -202,7 +225,7 @@ class ChatViewModel @Inject constructor(
         stopSpeaking()
         if (ttsTaReady) {
             _uiState.update { it.copy(isSpeakingTa = true, isSpeakingEn = false) }
-            ttsTa?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ta_utt")
+            ttsTa?.speak(cleanForTTS(text), TextToSpeech.QUEUE_FLUSH, null, "ta_utt")
         } else {
             _uiState.update {
                 it.copy(error = "Tamil voice pack not found. Enable Google Text-to-Speech Tamil voice in Phone Settings.")

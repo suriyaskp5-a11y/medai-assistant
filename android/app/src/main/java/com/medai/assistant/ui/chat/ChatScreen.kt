@@ -22,11 +22,100 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.medai.assistant.R
+
+/**
+ * Renders a markdown-like string into an AnnotatedString with:
+ * - **bold** → bold text
+ * - ## Heading → bold + teal coloured text
+ * - • / - bullet lines → kept as-is (• prefix)
+ * - Other * symbols stripped cleanly
+ */
+@Composable
+fun MarkdownText(
+    text: String,
+    modifier: Modifier = Modifier,
+    baseColor: Color = MaterialTheme.colorScheme.onSurface,
+    headingColor: Color = MaterialTheme.colorScheme.primary,
+    fontSize: Int = 14
+) {
+    val annotated = buildAnnotatedString {
+        val lines = text.split("\n")
+        lines.forEachIndexed { lineIndex, rawLine ->
+            val line = rawLine.trimStart()
+
+            // Detect heading lines: ## Heading or **Heading**
+            val headingMatch = Regex("^#{1,6}\\s+(.+)$").find(line)
+            val boldLineMatch = if (headingMatch == null) Regex("^\\*\\*(.+)\\*\\*\\s*$").find(line) else null
+
+            when {
+                headingMatch != null -> {
+                    // Render as bold + heading colour
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = headingColor, fontSize = (fontSize + 1).sp)) {
+                        append(headingMatch.groupValues[1])
+                    }
+                }
+                boldLineMatch != null -> {
+                    // Full line bold (e.g. **Title**)
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = headingColor, fontSize = (fontSize + 1).sp)) {
+                        append(boldLineMatch.groupValues[1])
+                    }
+                }
+                else -> {
+                    // Bullet lines
+                    val bulletLine = if (line.startsWith("- ") || line.startsWith("• ")) {
+                        "• " + line.removePrefix("- ").removePrefix("• ")
+                    } else line
+
+                    // Parse inline **bold** within the line
+                    val parts = bulletLine.split(Regex("\\*\\*(.*?)\\*\\*"))
+                    var isBold = false
+                    // Re-split to get groups including captured ones
+                    val inlineParts = Regex("\\*\\*(.*?)\\*\\*").findAll(bulletLine)
+                    var cursor = 0
+                    for (match in inlineParts) {
+                        // Text before this bold span
+                        val before = bulletLine.substring(cursor, match.range.first)
+                        if (before.isNotEmpty()) {
+                            withStyle(SpanStyle(color = baseColor, fontSize = fontSize.sp)) {
+                                append(before)
+                            }
+                        }
+                        // Bold span
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = baseColor, fontSize = fontSize.sp)) {
+                            append(match.groupValues[1])
+                        }
+                        cursor = match.range.last + 1
+                    }
+                    // Remaining text after last bold
+                    val tail = bulletLine.substring(cursor)
+                    if (tail.isNotEmpty()) {
+                        withStyle(SpanStyle(color = baseColor, fontSize = fontSize.sp)) {
+                            // Strip any lone * or # symbols
+                            append(tail.replace(Regex("[*#`~_]"), ""))
+                        }
+                    }
+                }
+            }
+
+            if (lineIndex < lines.size - 1) append("\n")
+        }
+    }
+
+    Text(
+        text = annotated,
+        modifier = modifier,
+        lineHeight = (fontSize + 7).sp
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -303,10 +392,11 @@ fun MessageBubble(
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
+                        MarkdownText(
                             text = message.englishAnswer ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            lineHeight = 20.sp
+                            baseColor = MaterialTheme.colorScheme.onSurface,
+                            headingColor = MaterialTheme.colorScheme.primary,
+                            fontSize = 14
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -319,10 +409,11 @@ fun MessageBubble(
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
+                        MarkdownText(
                             text = message.tamilExplanation ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            lineHeight = 22.sp
+                            baseColor = MaterialTheme.colorScheme.onSurface,
+                            headingColor = MaterialTheme.colorScheme.secondary,
+                            fontSize = 14
                         )
 
                         // Key terms
