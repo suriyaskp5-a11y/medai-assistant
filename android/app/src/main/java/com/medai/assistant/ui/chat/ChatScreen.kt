@@ -1,10 +1,12 @@
 package com.medai.assistant.ui.chat
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -19,10 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.medai.assistant.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,13 +55,23 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("MedAI Assistant", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "Medical Education (Tamil & English)",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_medai_logo),
+                            contentDescription = "MedAI Logo",
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
                         )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("MedAI Assistant", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Medical Education (Tamil & English)",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -149,8 +163,16 @@ fun ChatScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_medai_logo),
+                            contentDescription = "MedAI Logo",
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "🩺 Welcome to MedAI Assistant",
+                            text = "Welcome to MedAI Assistant",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -229,10 +251,19 @@ fun MessageBubble(
     } else {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Top
         ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_medai_logo),
+                contentDescription = "MedAI Avatar",
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
